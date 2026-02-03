@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "fw-core",
+    "fw-ctl",
+    "fw-user",
+]
+resolver="3"
