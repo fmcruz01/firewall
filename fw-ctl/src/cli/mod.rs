@@ -3,3 +3,5 @@
 // Declare commands and flags
 // Map commands to actions
 
+pub mod command;
+
