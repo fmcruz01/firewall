@@ -1,5 +1,7 @@
 # Firewall in Rust
-[![Coverage](https://github.com/fmcruz01/firewall/actions/workflows/rust.yml/badge.svg)](https://github.com/fmcruz01/firewall/actions)
+![Repo]( https://img.shields.io/badge/github-repo-blue?logo=github)
+[![Build](https://github.com/fmcruz01/firewall/actions/workflows/rust.yml/badge.svg)](https://github.com/fmcruz01/firewall/actions)
+![GitHub Commits](https://img.shields.io/github/last-commit/fmcruz01/firewall)
 
 ## Overview
 
