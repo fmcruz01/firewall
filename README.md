@@ -1,8 +1,6 @@
 # Firewall in Rust
 [![Coverage](https://github.com/fmcruz01/firewall/actions/workflows/rust.yml/badge.svg)](https://github.com/fmcruz01/firewall/actions)
 
----
-
 ## Overview
 
 This firewall is a **self-hosted, modular firewall** written in Rust.  
