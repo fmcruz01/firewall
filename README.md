@@ -11,16 +11,6 @@ The project currently focuses on **host-based packet sniffing and filtering** wi
 
 ---
 
-## Toolset
-
-- **Language:** Rust
-- **Packet capture:** [pcap crate](https://crates.io/crates/pcap)
-- **Async & runtime (future phases):** tokio / async-std
-- **Testing:** cargo test, Rust unit tests
-- **CI/CD:** GitHub Actions
-
----
-
 ## Goals
 
 1. **Learn real networking and security**
@@ -31,10 +21,9 @@ The project currently focuses on **host-based packet sniffing and filtering** wi
 
 ---
 
-## Features (Phase 1 → Phase 7)
-🟢 - Done
-🟡 - In-Progress
-🔴 - Not started
+## Features progress
+
+🔴 - **Not started** | 🟡 - **In-Progress** | 🟢 - **Done**
 
 
 | Epic | Goal | Status |
