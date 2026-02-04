@@ -6,17 +6,17 @@
 //   show status
 // Call into config + IPC layers
 use std::result::Result;
-use fw_user::start_processing;
+use fw_user::{start_processing, RuntimeError};
 
 pub enum Command {
     SNIFF { interface: String, verbose: bool },
 }
 
 impl Command {
-    pub fn execute(&self) {
+    pub fn execute(&self) -> Result<(), RuntimeError>{
         match self {
-            Command::SNIFF { interface: _, verbose: _ } => {
-                start_processing(true);
+            Command::SNIFF { interface: _, verbose: v } => {
+                start_processing(*v)
             }
         }
     }
@@ -28,7 +28,7 @@ pub fn parse_command(cmd: &str) -> Result<Command, &'static str> {
             println!("Sniff command received.");
             Ok(Command::SNIFF {
                 interface: "eth0".to_string(),
-                verbose: false,
+                verbose: true,
             })
         }
         _ => Err("unsupported command"),

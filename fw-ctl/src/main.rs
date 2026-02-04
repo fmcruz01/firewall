@@ -15,16 +15,17 @@ pub fn main() {
             help();
             exit(1);
         }
-        2 => {
-            match parse_command(&args[1]) {
-                Ok(command) => {
-                    command.execute();
-                }
-                Err(error) => {
-                    println!("{error}");
-                }
+        2 => match parse_command(&args[1]) {
+            Ok(command) => {
+                command.execute().map_err(|err| {
+                    println!("{:?}", err);
+                    exit(1)
+                });
             }
-        }
+            Err(error) => {
+                println!("{error}");
+            }
+        },
         _ => {
             help();
             exit(0);
@@ -33,8 +34,10 @@ pub fn main() {
 }
 
 fn help() {
-    println!("usage:
+    println!(
+        "usage:
 fw-ctl sniff [ -v ]
     Start firewall. Use -v for verbose mode.
-");
+"
+    );
 }

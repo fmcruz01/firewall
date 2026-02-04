@@ -4,4 +4,4 @@
 
 mod capture;
 
-pub(crate) use capture::start;
+pub(crate) use capture::start_capture;
