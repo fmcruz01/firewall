@@ -5,7 +5,9 @@
 // Pass verdicts to enforcement
 // Forward telemetry events
 use crate::RuntimeError;
+use chrono::DateTime;
 use pcap::Device;
+//use signal_hook::consts::{SIGTERM, SIGINT};
 
 pub(crate) fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
     let device = Device::lookup()
@@ -22,7 +24,10 @@ pub(crate) fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
 
     while let Ok(packet) = cap.next_packet() {
         if verbose {
-            println!("received packet {:?}", packet);
+            println!(
+                "received packet at: {:?}",
+                DateTime::from_timestamp_secs(packet.header.ts.tv_sec).unwrap()
+            );
         }
     }
     Ok(())
