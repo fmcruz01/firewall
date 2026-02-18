@@ -4,12 +4,19 @@
 // Call into fw-core::engine::pipeline
 // Pass verdicts to enforcement
 // Forward telemetry events
-use crate::RuntimeError;
 use chrono::DateTime;
 use pcap::Device;
 //use signal_hook::consts::{SIGTERM, SIGINT};
 
-pub(crate) fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
+#[derive(Debug)]
+pub enum RuntimeError {
+    PermissionDenied,
+    InterfaceNotFound,
+    CaptureError,
+    Shutdown,
+}
+
+pub fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
     let device = Device::lookup()
         .map_err(|_| RuntimeError::PermissionDenied)?
         .ok_or(RuntimeError::InterfaceNotFound)?;

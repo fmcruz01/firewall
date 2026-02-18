@@ -3,34 +3,30 @@
 // Parse user commands
 // Dispatch subommands
 // Handle errors cleanly
-mod cli;
-use cli::command::parse_command;
+
+mod ipc;
+
 use std::env::args;
 use std::process::exit;
 
-pub fn main() {
-    let args: Vec<String> = args().collect();
-    match args.len() {
-        1 => {
-            help();
-            exit(1);
+#[tokio::main]
+async fn main() -> anyhow::Result<()>{
+    let mut args = args().skip(1);
+    match args.next().as_deref() {
+        Some("sniff") => {
+            let interface = args.next().unwrap_or_else(|| "eth0".to_string());
+            let verbose = true;
+            ipc::client::sniff(interface, verbose).await?;
         }
-        2 => match parse_command(&args[1]) {
-            Ok(command) => {
-                command.execute().map_err(|err| {
-                    println!("{:?}", err);
-                    exit(1)
-                });
-            }
-            Err(error) => {
-                println!("{error}");
-            }
-        },
+        Some("stop") => {
+            ipc::client::stop().await?;
+        }
         _ => {
             help();
             exit(0);
         }
     }
+    Ok(())
 }
 
 fn help() {

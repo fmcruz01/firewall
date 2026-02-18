@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 pcap = "2.4.0"
 chrono = "0.4.43"
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
