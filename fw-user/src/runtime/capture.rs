@@ -1,19 +1,11 @@
-// Own the packet-processing loop
-//
-// Receive packets from kernel
-// Call into fw-core::engine::pipeline
-// Pass verdicts to enforcement
-// Forward telemetry events
-use chrono::DateTime;
+use fw_core::packet::{EthernetHeader, IPv4Header, IPv6Header};
 use pcap::Device;
-//use signal_hook::consts::{SIGTERM, SIGINT};
 
 #[derive(Debug)]
 pub enum RuntimeError {
     PermissionDenied,
     InterfaceNotFound,
     CaptureError,
-    Shutdown,
 }
 
 pub fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
@@ -31,10 +23,31 @@ pub fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
 
     while let Ok(packet) = cap.next_packet() {
         if verbose {
-            println!(
-                "received packet at: {:?}",
-                DateTime::from_timestamp_secs(packet.header.ts.tv_sec).unwrap()
-            );
+            let eth_head = EthernetHeader::parse(packet.data).ok_or_else(|| {
+                eprintln!("Error parsing Ethernet Frame");
+                RuntimeError::CaptureError
+            })?;
+
+            println!("received packet: {}", eth_head);
+            match eth_head.ether_type {
+                fw_core::packet::ethernet::EtherType::IPv4 => {
+                    let ipv4_header = IPv4Header::parse(eth_head.payload).ok_or_else(|| {
+                        eprintln!("error parsing IPv4 header");
+                        RuntimeError::CaptureError
+                    })?;
+                    println!("IP Header: {}", ipv4_header);
+                }
+                fw_core::packet::ethernet::EtherType::IPv6 => {
+                    let ipv6_header = IPv6Header::parse(eth_head.payload).ok_or_else(|| {
+                        eprintln!("error parsing IPv6 header");
+                        RuntimeError::CaptureError
+                    })?;
+                    println!("IP Header: {}", ipv6_header);
+                }
+                fw_core::packet::ethernet::EtherType::Unknown => {
+                    eprintln!("Error parsing packet.");
+                }
+            }
         }
     }
     Ok(())
