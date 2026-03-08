@@ -1,4 +1,4 @@
-use fw_core::packet::{EthernetHeader, IPv4Header, IPv6Header};
+use fw_core::packet::parse_packet;
 use pcap::Device;
 
 #[derive(Debug)]
@@ -23,29 +23,12 @@ pub fn start_capture(verbose: bool) -> Result<(), RuntimeError> {
 
     while let Ok(packet) = cap.next_packet() {
         if verbose {
-            let eth_head = EthernetHeader::parse(packet.data).ok_or_else(|| {
-                eprintln!("Error parsing Ethernet Frame");
-                RuntimeError::CaptureError
-            })?;
-
-            println!("received packet: {}", eth_head);
-            match eth_head.ether_type {
-                fw_core::packet::ethernet::EtherType::IPv4 => {
-                    let ipv4_header = IPv4Header::parse(eth_head.payload).ok_or_else(|| {
-                        eprintln!("error parsing IPv4 header");
-                        RuntimeError::CaptureError
-                    })?;
-                    println!("IP Header: {}", ipv4_header);
+            match parse_packet(packet.data) {
+                Some(h) => {
+                    println!("{}", h);
                 }
-                fw_core::packet::ethernet::EtherType::IPv6 => {
-                    let ipv6_header = IPv6Header::parse(eth_head.payload).ok_or_else(|| {
-                        eprintln!("error parsing IPv6 header");
-                        RuntimeError::CaptureError
-                    })?;
-                    println!("IP Header: {}", ipv6_header);
-                }
-                fw_core::packet::ethernet::EtherType::Unknown => {
-                    eprintln!("Error parsing packet.");
+                None => {
+                    println!("Error parsing packet");
                 }
             }
         }

@@ -1,4 +1,5 @@
 use std::fmt;
+use super::Protocol;
 
 #[repr(C)]
 pub struct IPv4Header<'a> {
@@ -9,24 +10,11 @@ pub struct IPv4Header<'a> {
     pub data: &'a [u8],
 }
 
-#[derive(Debug)]
-pub enum Protocol {
-    TCP,
-    UDP,
-    Unknown,
-}
-
-// IPv4 packet should parse fixed and variable IPv4 Headers
-// Validate header length, total length, checksum
-// Extract protocol, src/dst addresses
-// Detect fragmentation and axpose fragment metadata
 impl IPv4Header<'_> {
     pub fn parse(bytes: &[u8]) -> Option<IPv4Header<'_>> {
-        let dst = bytes[16..=19].try_into().ok()?;
-        let src = bytes[12..=15].try_into().ok()?;
         Some(IPv4Header {
-            dst,
-            src,
+            dst: bytes[16..=19].try_into().ok()?,
+            src: bytes[12..=15].try_into().ok()?,
             protocol: match bytes[9] {
                 6 => Protocol::TCP,
                 17 => Protocol::UDP,

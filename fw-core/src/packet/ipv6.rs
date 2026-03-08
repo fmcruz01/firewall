@@ -1,32 +1,26 @@
 use std::fmt;
+use super::Protocol;
 
 #[repr(C)]
 pub struct IPv6Header<'a> {
-    pub dst: [u8; 16],
-    pub src: [u8; 16],
+    pub dst: [u16; 8],
+    pub src: [u16; 8],
     pub ttl: u8,
     pub protocol: Protocol,
     pub data: &'a [u8],
 }
 
-#[derive(Debug)]
-pub enum Protocol {
-    TCP,
-    UDP,
-    Unknown,
-}
-
-// IPv4 packet should parse fixed and variable IPv4 Headers
-// Validate header length, total length, checksum
-// Extract protocol, src/dst addresses
-// Detect fragmentation and axpose fragment metadata
 impl IPv6Header<'_> {
     pub fn parse(bytes: &[u8]) -> Option<IPv6Header<'_>> {
-        let src = bytes[8..=23].try_into().ok()?;
-        let dst = bytes[24..=39].try_into().ok()?;
         Some(IPv6Header {
-            dst,
-            src,
+            dst: std::array::from_fn(|i| {
+                let offset = 24 + i * 2;
+                u16::from_be_bytes(bytes[offset..=offset + 1].try_into().unwrap())
+            }),
+            src: std::array::from_fn(|i| {
+                let offset = 8 + i * 2;
+                u16::from_be_bytes(bytes[offset..=offset + 1].try_into().unwrap())
+            }),
             protocol: match bytes[6] {
                 6 => Protocol::TCP,
                 17 => Protocol::UDP,
@@ -64,4 +58,3 @@ impl fmt::Display for IPv6Header<'_> {
         )
     }
 }
-

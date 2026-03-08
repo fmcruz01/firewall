@@ -17,11 +17,9 @@ pub enum EtherType {
 
 impl EthernetHeader<'_> {
     pub fn parse(bytes: &[u8]) -> Option<EthernetHeader<'_>> {
-        let dst: [u8; 6] = bytes[0..=5].try_into().ok()?;
-        let src: [u8; 6] = bytes[6..=11].try_into().ok()?;
         Some(EthernetHeader {
-            dst,
-            src,
+            dst: bytes[0..=5].try_into().ok()?,
+            src: bytes[6..=11].try_into().ok()?,
             ether_type: match ((bytes[12] as u16) << 8) + bytes[13] as u16 {
                 0x0800 => EtherType::IPv4,
                 0x86DD => EtherType::IPv6,
