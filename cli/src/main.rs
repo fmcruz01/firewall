@@ -24,7 +24,7 @@ fn main() -> Result<(), ()> {
         Some("sniff") => {
             let verbose = true;
             println!("Starting capture...");
-            if let Err(e) = runtime::runtime::start_capture(verbose, running) {
+            if let Err(e) = runtime::start_capture(verbose, running) {
                 eprintln!("error: {e:?}");
                 exit(1);
             }
