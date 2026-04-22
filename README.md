@@ -1,7 +1,8 @@
 # rscan
 
-Network scanning tool written in rust. The goal is to make an effective tool to scan a network against intruders.
-Currently doing some network research on how to achieve this.
+Network security scanning tool written in rust. The goal is to make an efficient and effective tool to scan a network against intruders, pakcet injections and so on.
+Currently doing some network research if feasible and how to achieve this.
+Requires scanner (host/service discovery), packet inspection, detection engine.
 
 ## Crates
 
