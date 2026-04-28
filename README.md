@@ -5,7 +5,9 @@
   <img src="https://img.shields.io/github/last-commit/randomctl/rscan" />
 </div>
 
-Network security scanning tool written in Rust.
+<br />
+
+`rscan` is a network security scanning tool written in Rust.
 
 The goal is to build an efficient network scanner for local LAN environments with:
 - host and service discovery
@@ -15,6 +17,12 @@ The goal is to build an efficient network scanner for local LAN environments wit
 
 This project is currently being reorganized into a crate-based architecture.
 
+## Usage
+
+```bash
+sudo cargo run --bin rscan -- sniff
+```
+
 ## Crates
 
 - `core`: orchestration/runtime integration, shared models/events, config and security checks
@@ -23,8 +31,3 @@ This project is currently being reorganized into a crate-based architecture.
 - `detect`: detection engine and rule evaluation
 - `tui`: terminal UI surface and input handling
 
-## Usage
-
-```bash
-sudo cargo run --bin rscan -- sniff
-```
