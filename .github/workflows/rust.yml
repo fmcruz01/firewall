@@ -25,14 +25,34 @@ jobs:
         toolchain: stable
         override: true
 
+    # Install llvm tools
+    - name: Install llvm-tools component explicitly
+      run: rustup component add llvm-tools-preview --toolchain stable
+
+    # Install just
+    - name: Install just
+      run: cargo install just
+
     # Install dependencies for pcap
     - name: Install libpcap
       run: sudo apt-get update && sudo apt-get install -y libpcap-dev pkg-config
 
+    # Install llvm dependencies
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
+    # Install llvm
+    - name: Install llvm
+      run: cargo install cargo-llvm-cov
+
     # Build
     - name: Build
-      run: cargo build
+      run: just build
 
     # Tests
-    - name: Run tests
-      run: cargo test
+    - name: Run unit tests
+      run: just unit-all
+
+    # Run coverage check, keeping 0 for now
+    - name: Run coverage check
+      run: just cov-check 0

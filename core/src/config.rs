@@ -279,12 +279,12 @@ mod tests {
     #[test]
     fn test_parse_fail() {
         let invalid_args: Vec<Vec<&str>> = vec![
-            vec!["--unknown"], // unknown arg
-            vec!["-u"], // unknown arg
-            vec!["-avt"], // multiple modes
+            vec!["--unknown"],                        // unknown arg
+            vec!["-u"],                               // unknown arg
+            vec!["-avt"],                             // multiple modes
             vec!["--verbose", "--passsive", "--tui"], //multiple modes
-            vec!["--tui", "--unknown"], // multiple args with unknown
-            vec!["-tvu"], // multiple args with unknown
+            vec!["--tui", "--unknown"],               // multiple args with unknown
+            vec!["-tvu"],                             // multiple args with unknown
         ];
         for arg in invalid_args {
             let mut args: Vec<String> = arg.iter().map(|a| a.to_string()).collect();
