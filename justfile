@@ -1,6 +1,6 @@
 build:
     cargo build
-    cargo install --path core --bin rscan --force
+    cargo install --path . --bin rscan --force
 
 test: build
     cargo test
@@ -10,9 +10,6 @@ unit: build
 
 unit-all: build
     cargo test --lib -- --include-ignored
-
-pktest target: build
-    cargo test --package {{target}}
 
 cov:
     LLVM_COV="$(rustup run stable rustc --print target-libdir)/../bin/llvm-cov" \

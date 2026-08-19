@@ -4,6 +4,12 @@ set -euo pipefail
 MIN_COVERAGE="${1:-60}"
 LLVM_BIN="$(rustup run stable rustc --print target-libdir)/../bin"
 
+cleanup() {
+    cargo +stable llvm-cov clean --workspace
+}
+
+trap cleanup EXIT
+
 LINES_PERCENT="$(LLVM_COV="$LLVM_BIN/llvm-cov" LLVM_PROFDATA="$LLVM_BIN/llvm-profdata" cargo +stable llvm-cov --workspace --json --summary-only | jq -r '.data[0].totals.lines.percent')"
 
 if [[ -z "$LINES_PERCENT" || "$LINES_PERCENT" == "null" ]]; then
