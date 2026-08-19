@@ -7,41 +7,54 @@
 
 <br />
 
-`rscan` is a network security scanning tool written in Rust.
+`rscan` is a LAN scanning tool written in Rust.
 
-The goal is to build an efficient network scanner for local LAN environments with:
-- host and service discovery
-- packet inspection
-- built-in threat detection
-- terminal user interface (TUI)
-
-This project is currently being reorganized into a crate-based architecture.
+The goal is to build an efficient network scanner for LAN environments that supports dicovering of all devices on the local network
+and fingerprinting each device to gather metadata on it.
 
 ## Usage
 
 ```
-usage: rscan [MODE] [OPTIONS]
+RSCAN v1.0 -- LAN Scanning Tool
 
-Arguments:
--t,  --tui           Terminal User Interface mode. (Default mode).
--p,  --passive       Passive mode. (Displaying packets metadata).
--a,  --active        Active mode (Host/port discovery).
+Usage: rscan [OPTIONS] <COMMAND>
+
+Commands:
+  discover     Scans LAN to discover devices
+  fingerprint  Lists all information about device with provided id
+  help         Print this message or the help of the given subcommand(s)
 
 Options:
--v,  --verbose       Verbose output logging.
--h,  --help          Print help.
--V,  --version       Print version.
--l,  --list-devices  List all the devices available
+  -o, --output <OUTPUT>  Path to the output file. If file does not exist, one will be created
+  -h, --help             Print help
+  -V, --version          Print version
+```
 
-Notes:
-If no mode is specified, --tui is assumed.
- ```
+### Discover command
 
-## Crates
+```
+Scans LAN to discover devices
 
-- `core`: orchestration/runtime integration, shared models/events, config and security checks
-- `capture`: packet capture and frame decode/parsing adapters
-- `probe`: active discovery and probing workflow (host/port scan pipeline)
-- `detect`: detection engine and rule evaluation
-- `tui`: terminal UI surface and input handling
+Usage: rscan discover [OPTIONS]
+
+Options:
+  -i, --interface <INTERFACE>  [default: en0]
+  -h, --help                   Print help
+  -V, --version                Print version
+```
+
+### Fingerprint command
+
+```
+Lists all information about device with provided id
+
+Usage: rscan fingerprint <ID>
+
+Arguments:
+  <ID>  id of the device to fingerprint
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+```
 
