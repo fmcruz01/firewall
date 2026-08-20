@@ -3,6 +3,10 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
 pub fn discover() {
+    progress_bar();
+}
+
+fn progress_bar() {
     let pb = ProgressBar::new_spinner();
 
     pb.set_style(
