@@ -2,7 +2,7 @@ use crate::models::Device;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
-pub fn discover() {
+pub fn scan_network() {
     progress_bar();
 }
 
