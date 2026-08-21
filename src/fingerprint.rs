@@ -1,2 +1,5 @@
-pub fn scan_device() {
+use anyhow::Result;
+
+pub fn scan_device() -> Result<()> {
+    Ok(())
 }

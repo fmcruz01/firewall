@@ -1,9 +1,11 @@
 use crate::models::Device;
+use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
-pub fn scan_network() {
+pub fn scan_network() -> Result<()> {
     progress_bar();
+    Ok(())
 }
 
 fn progress_bar() {
