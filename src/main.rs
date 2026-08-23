@@ -9,13 +9,13 @@ fn main() -> Result<()> {
     let cmd = cli::parse();
     match cmd {
         cli::Command::Discover { interface } => {
-            if let Err(error) = discover::scan_network() {
+            if let Err(error) = discover::scan_network( interface ) {
                 print_error(&error);
                 std::process::exit(1);
             }
         }
-        cli::Command::Fingerprint { id } => {
-            if let Err(error) = fingerprint::scan_device() {
+        cli::Command::Fingerprint { ip } => {
+            if let Err(error) = fingerprint::scan_device(&ip) {
                 print_error(&error);
                 std::process::exit(1);
             }

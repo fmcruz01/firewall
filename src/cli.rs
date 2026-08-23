@@ -21,8 +21,8 @@ pub enum Command {
     },
     /// Lists all information about device with provided id
     Fingerprint {
-        /// id of the device to fingerprint
-        id: String,
+        /// ip of the device to fingerprint
+        ip: String,
     },
 }
 
