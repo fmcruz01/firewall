@@ -4,19 +4,19 @@ use indicatif::{ProgressBar, ProgressStyle};
 use libc::{
     AF_INET, AF_NETLINK, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, RT_TABLE_MAIN, RTM_GETROUTE,
     SOCK_RAW, bind, close, getpid, nlmsghdr, recv, send, sockaddr, sockaddr_nl, socket, socklen_t,
-    ssize_t,
 };
 use std::{
-    array, mem,
+    mem,
     os::{fd::RawFd, raw::c_void},
     time::Duration,
 };
 
 pub fn scan_network(interface: String) -> Result<()> {
-    progress_bar();
+    let pb = progress_bar();
     if &interface == "default" {
         get_route_table().with_context(|| format!("failed to get routing table"))?;
     }
+    end_progress_bar(pb);
     Ok(())
 }
 
@@ -52,10 +52,6 @@ fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
         }
 
         response.extend_from_slice(&buf[..received as usize]);
-
-        if received < buf.len() as isize {
-            break;
-        }
     }
     Ok(response)
 }
@@ -141,7 +137,7 @@ fn bind_nl_socket(sockfd_nl: RawFd) -> Result<(), DiscoverError> {
     }
 }
 
-fn progress_bar() {
+fn progress_bar() -> ProgressBar{
     let pb = ProgressBar::new_spinner();
 
     pb.set_style(
@@ -152,7 +148,10 @@ fn progress_bar() {
 
     pb.enable_steady_tick(Duration::from_millis(80));
     pb.set_message("Scanning network...");
+    pb
+}
 
+fn end_progress_bar(pb: ProgressBar) {
     pb.finish_and_clear();
     println!("Scan complete \x1b[32m✓\x1b[0m");
 }
