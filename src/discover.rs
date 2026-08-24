@@ -1,33 +1,71 @@
-use crate::models::Device;
-use anyhow::Result;
+use crate::models::{Device, DiscoverError};
+use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::ffi::CStr;
-use std::time::Duration;
+use libc::{
+    AF_NETLINK, NETLINK_ROUTE, SOCK_RAW, bind, close, getpid, send, sockaddr, sockaddr_nl, socket,
+    socklen_t,
+};
+use std::{array, mem, os::fd::RawFd, time::Duration};
 
 pub fn scan_network(interface: String) -> Result<()> {
     progress_bar();
-    let mut ifaddr_list: *mut libc::ifaddrs = std::ptr::null_mut();
-    let result = unsafe { libc::getifaddrs(&mut ifaddr_list) };
-
-    if result != 0 {
-        // handle error
-    } else {
-        // debug existing interfaces
-        let mut curr = ifaddr_list;
-        while !std::ptr::eq(curr, std::ptr::null_mut()) {
-            unsafe {
-                let c_str = CStr::from_ptr((*curr).ifa_name);
-                println!("{:?}", c_str);
-                curr = (*curr).ifa_next;
-            }
-        }
+    if &interface == "default" {
+        get_route_table().with_context(|| format!("failed to get routing table"))?;
     }
-
-    unsafe {
-        libc::freeifaddrs(ifaddr_list);
-    }
-
     Ok(())
+}
+
+fn get_route_table() -> Result<(), DiscoverError> {
+    unsafe {
+        let sockfd_nl: RawFd = open_nl_socket()?;
+        bind_nl_socket(sockfd_nl)?;
+        close(sockfd_nl);
+    }
+    Ok(())
+}
+
+fn build_rtm_getroute() -> Result<(), DiscoverError> {
+    Ok(())
+}
+
+fn open_nl_socket() -> Result<RawFd, DiscoverError> {
+    unsafe {
+        let sockfd_nl: RawFd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+        if sockfd_nl < 0 {
+            close(sockfd_nl);
+            return Err(DiscoverError::SocketError {
+                operation: String::from("open"),
+                socket_type: String::from("netlink"),
+                source: std::io::Error::last_os_error(),
+            });
+        }
+
+        Ok(sockfd_nl)
+    }
+}
+
+fn bind_nl_socket(sockfd_nl: RawFd) -> Result<(), DiscoverError> {
+    unsafe {
+        let mut saddr: sockaddr_nl = mem::zeroed();
+        saddr.nl_pid = getpid() as u32;
+        saddr.nl_family = AF_NETLINK as u16;
+        saddr.nl_groups = 0;
+
+        if bind(
+            sockfd_nl,
+            &saddr as *const _ as *const sockaddr,
+            mem::size_of::<sockaddr_nl>() as socklen_t,
+        ) < 0
+        {
+            close(sockfd_nl);
+            return Err(DiscoverError::SocketError {
+                operation: String::from("bind"),
+                socket_type: String::from("netlink"),
+                source: std::io::Error::last_os_error(),
+            });
+        }
+        Ok(())
+    }
 }
 
 fn progress_bar() {
