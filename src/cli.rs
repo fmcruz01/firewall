@@ -16,7 +16,7 @@ struct Args {
 pub enum Command {
     /// Scans LAN to discover devices
     Discover {
-        #[arg(short, long, default_value_t = String::from("en0"))]
+        #[arg(short, long, default_value_t = String::from("default"))]
         interface: String,
     },
     /// Lists all information about device with provided id
