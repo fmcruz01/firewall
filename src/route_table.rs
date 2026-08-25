@@ -1,6 +1,7 @@
 use libc::{
-    AF_INET, AF_NETLINK, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, RT_TABLE_MAIN, RTM_GETROUTE,
-    SOCK_RAW, bind, close, getpid, nlmsghdr, recv, send, sockaddr, sockaddr_nl, socket, socklen_t,
+    AF_INET, AF_NETLINK, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, RT_TABLE_MAIN,
+    RTM_GETROUTE, SOCK_RAW, bind, close, getpid, ifinfomsg, nlmsghdr, recv, send, sockaddr,
+    sockaddr_nl, socket, socklen_t,
 };
 use std::{
     mem,
@@ -17,31 +18,41 @@ pub fn get_route_table() -> Result<()> {
         let (rtmsg, nlh) = build_rtm_getroute();
         send_rtmsg(sockfd_nl, rtmsg, nlh).context("failed to send message rtmessage")?;
         let msg = recv_rtmsg(sockfd_nl).context("failed to receive response from netlink")?;
-        println!("{:?}", msg);
+        for e in msg {
+            println!("{}", e.nlmsg_type as u16);
+        }
         close(sockfd_nl);
     }
     Ok(())
 }
 
-fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
+fn recv_rtmsg(fd: RawFd) -> Result<Vec<nlmsghdr>, DiscoverError> {
     let mut response = Vec::new();
     let mut buf = [0u8; 8192];
-    loop {
-        let received = unsafe { recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len(), 0) };
-        if received < 0 {
-            unsafe {
-                close(fd);
-            }
-            return Err(DiscoverError::SocketError {
-                source: std::io::Error::last_os_error(),
-            });
+    let mut offset = 0;
+    let received = unsafe { recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len(), 0) };
+    if received < 0 {
+        unsafe {
+            close(fd);
         }
+        return Err(DiscoverError::SocketError {
+            source: std::io::Error::last_os_error(),
+        });
+    }
 
-        if received == 0 {
+    while offset + mem::size_of::<nlmsghdr>() <= buf.len() {
+        let hdr = unsafe { &*(buf[offset..].as_ptr() as *const nlmsghdr) };
+        if hdr.nlmsg_type == NLMSG_DONE as u16 {
             break;
         }
 
-        response.extend_from_slice(&buf[..received as usize]);
+        let msg_len = hdr.nlmsg_len as usize;
+        if msg_len < mem::size_of::<nlmsghdr>() || offset + msg_len > buf.len() {
+            break;
+        }
+
+        response.push(*hdr);
+        offset += (msg_len + 3) & !3;
     }
     Ok(response)
 }
