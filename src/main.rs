@@ -2,6 +2,7 @@ mod cli;
 mod discover;
 mod fingerprint;
 mod models;
+mod route_table;
 
 use anyhow::{Error, Result};
 
