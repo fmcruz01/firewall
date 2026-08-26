@@ -1,16 +1,11 @@
 use libc::{
-    AF_INET, AF_NETLINK, IFNAMSIZ, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE,
-    NLMSG_ERROR, RT_TABLE_MAIN, RTA_OIF, RTM_GETROUTE, SOCK_RAW, bind, close, getpid,
-    if_indextoname, ifinfomsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket,
-    socklen_t,
+    AF_INET, AF_INET6, AF_NETLINK, IFNAMSIZ, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, NLMSG_ERROR, RT_TABLE_MAIN, RTA_OIF, RTA_PREFSRC, RTM_GETROUTE, SOCK_RAW, bind, close, getpid, if_indextoname, ifinfomsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket, socklen_t
 };
 use std::{
-    ffi::{CStr, c_char},
-    mem,
-    os::{fd::RawFd, raw::c_void},
+    ffi::{CStr, c_char}, mem, net::{Ipv4Addr, Ipv6Addr}, os::{fd::RawFd, raw::c_void}
 };
 
-use crate::models::{DiscoverError, NetworkInterface, RtMsg};
+use crate::models::{DiscoverError, RtMsg};
 use anyhow::{Context, Result};
 
 pub fn get_route_table() -> Result<()> {
@@ -25,7 +20,7 @@ pub fn get_route_table() -> Result<()> {
     Ok(())
 }
 
-fn parse_rta(rta: rtattr, data: &[u8]) {
+fn parse_rtaattr_data(rtmsg: &RtMsg, rta: &rtattr, data: &[u8]) {
     match rta.rta_type {
         RTA_OIF => {
             let ifindex = u32::from_ne_bytes(data[..4].try_into().unwrap());
@@ -36,6 +31,20 @@ fn parse_rta(rta: rtattr, data: &[u8]) {
             let name = unsafe { CStr::from_ptr(name.as_ptr()) };
 
             println!("{name:?}");
+        },
+        RTA_PREFSRC => {
+            match rtmsg.rtm_family as i32 {
+                AF_INET => {
+                    let addr = Ipv4Addr::new(data[0], data[1], data[2], data[3]);
+                    println!("{addr}");
+                },
+                AF_INET6 => {
+                    let bytes: [u8; 16] = data[..16].try_into().unwrap();
+                    let addr = Ipv6Addr::from(bytes);
+                    println!("{addr}");
+                },
+                _ => {}
+            }
         }
         _ => {}
     }
@@ -90,7 +99,7 @@ fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
                 let attr_data_start = data_offset + mem::size_of::<rtattr>();
                 let attr_data_end = data_offset + attr_len;
                 let attr_data = &buf[attr_data_start..attr_data_end];
-                parse_rta(*rta, attr_data);
+                parse_rtaattr_data(rtmsg, rta, attr_data);
                 data_offset += (attr_len + 3) & !3;
             }
             offset += (msg_len + 3) & !3;
