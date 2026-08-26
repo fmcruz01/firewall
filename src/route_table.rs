@@ -1,26 +1,32 @@
 use libc::{
-    AF_INET, AF_INET6, AF_NETLINK, IFNAMSIZ, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, NLMSG_ERROR, RT_TABLE_MAIN, RTA_OIF, RTA_PREFSRC, RTM_GETROUTE, SOCK_RAW, bind, close, getpid, if_indextoname, ifinfomsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket, socklen_t
+    AF_INET, AF_INET6, AF_NETLINK, IFNAMSIZ, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE,
+    NLMSG_ERROR, RT_TABLE_MAIN, RTA_OIF, RTA_PREFSRC, RTM_GETROUTE, SOCK_RAW, bind, close, getpid,
+    if_indextoname, ifinfomsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket,
+    socklen_t,
 };
 use std::{
-    ffi::{CStr, c_char}, mem, net::{Ipv4Addr, Ipv6Addr}, os::{fd::RawFd, raw::c_void}
+    ffi::{CStr, c_char},
+    mem,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    os::{fd::RawFd, raw::c_void},
 };
 
-use crate::models::{DiscoverError, RtMsg};
+use crate::models::{DiscoverError, NetworkInterface, RtMsg};
 use anyhow::{Context, Result};
 
-pub fn get_route_table() -> Result<()> {
+pub fn get_route_table() -> Result<NetworkInterface> {
+    let sockfd_nl: RawFd = open_nl_socket().context("failed to open route table socket")?;
+    bind_nl_socket(sockfd_nl).context("failed to bind route table socket")?;
+    let (rtmsg, nlh) = build_rtm_getroute();
+    send_rtmsg(sockfd_nl, rtmsg, nlh).context("failed to send message rtmessage")?;
+    let iface = recv_rtmsg(sockfd_nl).context("failed to receive response from netlink")?;
     unsafe {
-        let sockfd_nl: RawFd = open_nl_socket().context("failed to open route table socket")?;
-        bind_nl_socket(sockfd_nl).context("failed to bind route table socket")?;
-        let (rtmsg, nlh) = build_rtm_getroute();
-        send_rtmsg(sockfd_nl, rtmsg, nlh).context("failed to send message rtmessage")?;
-        recv_rtmsg(sockfd_nl).context("failed to receive response from netlink")?;
         close(sockfd_nl);
     }
-    Ok(())
+    Ok(iface)
 }
 
-fn parse_rtaattr_data(rtmsg: &RtMsg, rta: &rtattr, data: &[u8]) {
+fn parse_rtaattr_data(rtmsg: &RtMsg, rta: &rtattr, data: &[u8], iface: &mut NetworkInterface) {
     match rta.rta_type {
         RTA_OIF => {
             let ifindex = u32::from_ne_bytes(data[..4].try_into().unwrap());
@@ -30,28 +36,26 @@ fn parse_rtaattr_data(rtmsg: &RtMsg, rta: &rtattr, data: &[u8]) {
             }
             let name = unsafe { CStr::from_ptr(name.as_ptr()) };
 
-            println!("{name:?}");
-        },
-        RTA_PREFSRC => {
-            match rtmsg.rtm_family as i32 {
-                AF_INET => {
-                    let addr = Ipv4Addr::new(data[0], data[1], data[2], data[3]);
-                    println!("{addr}");
-                },
-                AF_INET6 => {
-                    let bytes: [u8; 16] = data[..16].try_into().unwrap();
-                    let addr = Ipv6Addr::from(bytes);
-                    println!("{addr}");
-                },
-                _ => {}
-            }
+            iface.set_name(&name.to_string_lossy());
         }
+        RTA_PREFSRC => match rtmsg.rtm_family as i32 {
+            AF_INET => {
+                let addr = Ipv4Addr::new(data[0], data[1], data[2], data[3]);
+                iface.add_addr(IpAddr::V4(addr));
+            }
+            AF_INET6 => {
+                let bytes: [u8; 16] = data[..16].try_into().unwrap();
+                let addr = Ipv6Addr::from(bytes);
+                iface.add_addr(IpAddr::V6(addr));
+            }
+            _ => {}
+        },
         _ => {}
     }
 }
 
-fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
-    let mut response = Vec::new();
+fn recv_rtmsg(fd: RawFd) -> Result<NetworkInterface, DiscoverError> {
+    let mut default_if = NetworkInterface::new();
     let mut buf = [0u8; 8192];
     loop {
         let received = unsafe { recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len(), 0) };
@@ -66,14 +70,13 @@ fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
         if received == 0 {
             break;
         }
-        response.extend_from_slice(&buf[..received as usize]);
 
         let mut offset = 0usize;
 
         while offset < received as usize {
             let hdr = unsafe { &*(buf[offset..].as_ptr() as *const nlmsghdr) };
             if hdr.nlmsg_type == NLMSG_DONE as u16 {
-                return Ok(response);
+                return Ok(default_if);
             }
             let msg_len = hdr.nlmsg_len as usize;
             if msg_len < mem::size_of::<nlmsghdr>() || offset + msg_len > buf.len() {
@@ -81,7 +84,7 @@ fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
             }
 
             let msg_end = offset + msg_len;
-            let mut attrs_offset = offset + mem::size_of::<nlmsghdr>();
+            let attrs_offset = offset + mem::size_of::<nlmsghdr>();
             let mut data_offset = attrs_offset + mem::size_of::<RtMsg>();
             if data_offset > msg_end {
                 break;
@@ -90,6 +93,7 @@ fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
             if rtmsg.rtm_dst_len != 0 {
                 break;
             }
+
             while data_offset + mem::size_of::<rtattr>() <= msg_end {
                 let rta = unsafe { &*(buf[data_offset..].as_ptr() as *const rtattr) };
                 let attr_len = rta.rta_len as usize;
@@ -99,13 +103,18 @@ fn recv_rtmsg(fd: RawFd) -> Result<Vec<u8>, DiscoverError> {
                 let attr_data_start = data_offset + mem::size_of::<rtattr>();
                 let attr_data_end = data_offset + attr_len;
                 let attr_data = &buf[attr_data_start..attr_data_end];
-                parse_rtaattr_data(rtmsg, rta, attr_data);
+                parse_rtaattr_data(rtmsg, rta, attr_data, &mut default_if);
                 data_offset += (attr_len + 3) & !3;
             }
             offset += (msg_len + 3) & !3;
         }
     }
-    Ok(response)
+    if default_if.addresses.is_empty() {
+        return Err(DiscoverError::NetworkInterfaceNotFound {
+            iface: "default".to_string(),
+        });
+    }
+    Ok(default_if)
 }
 
 fn send_rtmsg(fd: RawFd, rtmsg: RtMsg, nlh: nlmsghdr) -> Result<(), DiscoverError> {
