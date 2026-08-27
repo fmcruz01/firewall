@@ -8,7 +8,7 @@ pub fn scan_network(interface: String) -> Result<()> {
     let pb = progress_bar();
     if &interface == "default" {
         let iface = get_route_table().with_context(|| format!("failed to get routing table"))?;
-        println!("{iface:?}");
+        pb.println(format!("{iface:?}"));
     }
     end_progress_bar(pb);
     Ok(())

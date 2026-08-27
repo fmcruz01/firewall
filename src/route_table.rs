@@ -5,16 +5,13 @@ use libc::{
     socklen_t,
 };
 use std::{
-    ffi::{CStr, c_char},
-    mem,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    os::{fd::RawFd, raw::c_void},
+    collections::HashMap, ffi::{CStr, c_char}, mem, net::{IpAddr, Ipv4Addr, Ipv6Addr}, os::{fd::RawFd, raw::c_void}
 };
 
 use crate::models::{DiscoverError, NetworkInterface, RtMsg};
 use anyhow::{Context, Result};
 
-pub fn get_route_table() -> Result<NetworkInterface> {
+pub fn get_route_table() -> Result<HashMap<String, NetworkInterface>> {
     let sockfd_nl: RawFd = open_nl_socket().context("failed to open route table socket")?;
     bind_nl_socket(sockfd_nl).context("failed to bind route table socket")?;
     let (rtmsg, nlh) = build_rtm_getroute();
@@ -54,8 +51,8 @@ fn parse_rtaattr_data(rtmsg: &RtMsg, rta: &rtattr, data: &[u8], iface: &mut Netw
     }
 }
 
-fn recv_rtmsg(fd: RawFd) -> Result<NetworkInterface, DiscoverError> {
-    let mut default_if = NetworkInterface::new();
+fn recv_rtmsg(fd: RawFd) -> Result<HashMap<String, NetworkInterface>, DiscoverError> {
+    let mut interfaces: HashMap<String, NetworkInterface> = HashMap::new();
     let mut buf = [0u8; 8192];
     loop {
         let received = unsafe { recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len(), 0) };
@@ -76,7 +73,7 @@ fn recv_rtmsg(fd: RawFd) -> Result<NetworkInterface, DiscoverError> {
         while offset < received as usize {
             let hdr = unsafe { &*(buf[offset..].as_ptr() as *const nlmsghdr) };
             if hdr.nlmsg_type == NLMSG_DONE as u16 {
-                return Ok(default_if);
+                return Ok(interfaces);
             }
             let msg_len = hdr.nlmsg_len as usize;
             if msg_len < mem::size_of::<nlmsghdr>() || offset + msg_len > buf.len() {
@@ -90,10 +87,12 @@ fn recv_rtmsg(fd: RawFd) -> Result<NetworkInterface, DiscoverError> {
                 break;
             }
             let rtmsg = unsafe { &*(buf[attrs_offset..].as_ptr() as *const RtMsg) };
-            if rtmsg.rtm_dst_len != 0 {
-                break;
+            if rtmsg.rtm_dst_len == 0 {
+                offset += (msg_len + 3) & !3;
+                continue;
             }
 
+            let mut ntw_if = NetworkInterface::new();
             while data_offset + mem::size_of::<rtattr>() <= msg_end {
                 let rta = unsafe { &*(buf[data_offset..].as_ptr() as *const rtattr) };
                 let attr_len = rta.rta_len as usize;
@@ -103,18 +102,23 @@ fn recv_rtmsg(fd: RawFd) -> Result<NetworkInterface, DiscoverError> {
                 let attr_data_start = data_offset + mem::size_of::<rtattr>();
                 let attr_data_end = data_offset + attr_len;
                 let attr_data = &buf[attr_data_start..attr_data_end];
-                parse_rtaattr_data(rtmsg, rta, attr_data, &mut default_if);
+                parse_rtaattr_data(rtmsg, rta, attr_data, &mut ntw_if);
                 data_offset += (attr_len + 3) & !3;
+            }
+            if let Some(existing_if) = interfaces.get_mut(&ntw_if.name) {
+                existing_if.add_addr(existing_if.addresses[0]);
+            } else {
+                interfaces.insert(ntw_if.name.clone(), ntw_if);
             }
             offset += (msg_len + 3) & !3;
         }
     }
-    if default_if.addresses.is_empty() {
+    if interfaces.is_empty() {
         return Err(DiscoverError::NetworkInterfaceNotFound {
             iface: "default".to_string(),
         });
     }
-    Ok(default_if)
+    Ok(interfaces)
 }
 
 fn send_rtmsg(fd: RawFd, rtmsg: RtMsg, nlh: nlmsghdr) -> Result<(), DiscoverError> {

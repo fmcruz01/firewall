@@ -13,6 +13,7 @@ pub struct Device {
 pub struct NetworkInterface {
     pub name: String,
     pub addresses: Vec<IpAddr>,
+    pub mask: u32,
 }
 
 #[derive(Debug, Error)]
@@ -49,6 +50,7 @@ impl NetworkInterface {
         NetworkInterface {
             name: String::new(),
             addresses: Vec::new(),
+            mask: 0,
         }
     }
 
