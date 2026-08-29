@@ -12,49 +12,7 @@
 The goal is to build an efficient network scanner for LAN environments that supports dicovering of all devices on the local network
 and fingerprinting each device to gather metadata on it.
 
-## Usage
+By running `rscan discover` the default network interface will be used to search all the possible IP addresses in the network. It will only scan for currently
+actively connected devices.
 
-```
-RSCAN v1.0 -- LAN Scanning Tool
-
-Usage: rscan [OPTIONS] <COMMAND>
-
-Commands:
-  discover     Scans LAN to discover devices
-  fingerprint  Lists all information about device with provided id
-  help         Print this message or the help of the given subcommand(s)
-
-Options:
-  -o, --output <OUTPUT>  Path to the output file. If file does not exist, one will be created
-  -h, --help             Print help
-  -V, --version          Print version
-```
-
-### Discover command
-
-```
-Scans LAN to discover devices
-
-Usage: rscan discover [OPTIONS]
-
-Options:
-  -i, --interface <INTERFACE>  [default: en0]
-  -h, --help                   Print help
-  -V, --version                Print version
-```
-
-### Fingerprint command
-
-```
-Lists all information about device with provided id
-
-Usage: rscan fingerprint <ID>
-
-Arguments:
-  <ID>  id of the device to fingerprint
-
-Options:
-  -h, --help     Print help
-  -V, --version  Print version
-```
-
+On the other hand `rscan fingerprint <IP>` will scan against the given IP, similar to nmap, to fingerprint the device. The concrete output of this command is yet to be decided.
