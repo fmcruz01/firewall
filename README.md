@@ -1,8 +1,8 @@
 <div align="center">
   <img width="200" height="200" alt="rscan_logo" src="https://github.com/user-attachments/assets/bf70684b-3241-47cc-9369-c8705d90bd36" />
   <h1> rscan </h1>
-  <img src="https://github.com/randomctl/rscan/actions/workflows/rust.yml/badge.svg?branch=main" />
-  <img src="https://img.shields.io/github/last-commit/randomctl/rscan" />
+  <img src="https://github.com/rndomd/rscan/actions/workflows/rust.yml/badge.svg?branch=main" />
+  <img src="https://img.shields.io/github/last-commit/rndomd/rscan" />
 </div>
 
 <br />
