@@ -12,7 +12,7 @@ use std::{
     os::{fd::RawFd, raw::c_void},
 };
 
-use crate::models::{DiscoverError, NetworkInterface, RtMsg, Subnet};
+use crate::models::{DiscoverError, NetworkInterface, Subnet};
 use anyhow::{Context, Result};
 
 pub fn get_route_table() -> Result<HashMap<String, NetworkInterface>> {
@@ -55,14 +55,18 @@ fn parse_rtaattr_data(
                         attr_data[2],
                         attr_data[3],
                     ));
-                    ntw_if.add_subnet(Subnet::new(addr, addr_msg.ifa_prefixlen));
-                    found = true;
+                    if !addr.is_loopback() {
+                        ntw_if.add_subnet(Subnet::new(addr, addr_msg.ifa_prefixlen));
+                        found = true;
+                    }
                 }
                 AF_INET6 => {
                     let bytes: [u8; 16] = attr_data[..16].try_into().unwrap();
                     addr = IpAddr::V6(Ipv6Addr::from(bytes));
-                    ntw_if.add_subnet(Subnet::new(addr, addr_msg.ifa_prefixlen));
-                    found = true;
+                    if !addr.is_loopback() {
+                        ntw_if.add_subnet(Subnet::new(addr, addr_msg.ifa_prefixlen));
+                        found = true;
+                    }
                 }
                 _ => {}
             },
@@ -138,7 +142,7 @@ fn recv_rtmsg(fd: RawFd) -> Result<HashMap<String, NetworkInterface>, DiscoverEr
 
 fn send_rtmsg(fd: RawFd, addr_msg: ifaddrmsg, nlh: nlmsghdr) -> Result<(), DiscoverError> {
     unsafe {
-        let mut buf = [0u8; size_of::<nlmsghdr>() + size_of::<RtMsg>()];
+        let mut buf = [0u8; size_of::<nlmsghdr>() + size_of::<ifaddrmsg>()];
         std::ptr::copy_nonoverlapping(
             &nlh as *const _ as *const u8,
             buf.as_mut_ptr(),
@@ -147,7 +151,7 @@ fn send_rtmsg(fd: RawFd, addr_msg: ifaddrmsg, nlh: nlmsghdr) -> Result<(), Disco
         std::ptr::copy_nonoverlapping(
             &addr_msg as *const _ as *const u8,
             buf.as_mut_ptr().add(mem::size_of::<nlmsghdr>()),
-            size_of::<RtMsg>(),
+            size_of::<ifaddrmsg>(),
         );
         let sent = send(fd, buf.as_ptr() as *const c_void, buf.len(), 0);
         if sent < 0 {
