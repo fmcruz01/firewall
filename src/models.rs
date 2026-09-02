@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::{fmt::Display, net::{IpAddr, Ipv4Addr, Ipv6Addr}};
 
 use thiserror::Error;
 use uuid::Uuid;
@@ -59,9 +59,39 @@ impl NetworkInterface {
     }
 }
 
-
 impl Subnet {
-    pub fn new(ip: IpAddr, mask: u8) -> Self {
-        Subnet { ip, mask }
+    pub fn new(addr: IpAddr, mask: u8) -> Self {
+        match addr {
+            IpAddr::V4(addr_v4) => {
+                let mut bitmask = 1;
+                for _ in 0..mask {
+                    bitmask = (bitmask << 1) + 1;
+                }
+
+                for _ in 0..32 - mask {
+                    bitmask = bitmask << 1;
+                }
+                let ip = addr_v4.to_bits() & bitmask;
+                return Subnet {
+                    ip: IpAddr::V4(Ipv4Addr::from_bits(ip)),
+                    mask,
+                };
+            }
+            IpAddr::V6(addr_v6) => {
+                let mut bitmask: u128 = 1;
+                for _ in 0..mask {
+                    bitmask = (bitmask << 1) + 1;
+                }
+
+                for _ in 0..64 - mask {
+                    bitmask = bitmask << 1;
+                }
+                let ip = addr_v6.to_bits() & bitmask;
+                return Subnet {
+                    ip: IpAddr::V6(Ipv6Addr::from_bits(ip)),
+                    mask,
+                };
+            }
+        }
     }
 }
