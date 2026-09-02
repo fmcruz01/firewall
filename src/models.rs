@@ -9,11 +9,16 @@ pub struct Device {
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+pub struct Subnet {
+    ip: IpAddr,
+    mask: u8,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct NetworkInterface {
-    pub name: String,
-    pub addresses: Vec<IpAddr>,
-    pub mask: u32,
+    name: String,
+    subnets: Vec<Subnet>,
 }
 
 #[derive(Debug, Error)]
@@ -24,40 +29,39 @@ pub enum DiscoverError {
         source: std::io::Error,
     },
     #[error("failed to find {iface} network interface")]
-    NetworkInterfaceNotFound {
-        iface: String,
-    },
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct RtMsg {
-    pub rtm_family: u8,
-    pub rtm_dst_len: u8,
-    pub rtm_src_len: u8,
-    pub rtm_tos: u8,
-
-    pub rtm_table: u8,
-    pub rtm_protocol: u8,
-    pub rtm_scope: u8,
-    pub rtm_type: u8,
-
-    pub rtm_flags: u32,
+    NetworkInterfaceNotFound { iface: String },
 }
 
 impl NetworkInterface {
     pub fn new() -> Self {
         NetworkInterface {
             name: String::new(),
-            addresses: Vec::new(),
-            mask: 0,
+            subnets: Vec::new(),
         }
     }
 
     pub fn set_name(&mut self, name: &str) {
         self.name = String::from(name);
     }
-    pub fn add_addr(&mut self, addr: IpAddr) {
-        self.addresses.push(addr);
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn add_subnet(&mut self, subnet: Subnet) {
+        if !self.subnets.contains(&subnet) {
+            self.subnets.push(subnet);
+        }
+    }
+
+    pub fn get_subnets(&self) -> &Vec<Subnet> {
+        &self.subnets
+    }
+}
+
+
+impl Subnet {
+    pub fn new(ip: IpAddr, mask: u8) -> Self {
+        Subnet { ip, mask }
     }
 }
