@@ -1,4 +1,7 @@
-use std::{fmt::Display, net::{IpAddr, Ipv4Addr, Ipv6Addr}};
+use std::{
+    fmt::Display,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+};
 
 use thiserror::Error;
 use uuid::Uuid;
@@ -72,10 +75,10 @@ impl Subnet {
                     bitmask = bitmask << 1;
                 }
                 let ip = addr_v4.to_bits() & bitmask;
-                return Subnet {
+                Subnet {
                     ip: IpAddr::V4(Ipv4Addr::from_bits(ip)),
                     mask,
-                };
+                }
             }
             IpAddr::V6(addr_v6) => {
                 let mut bitmask: u128 = 1;
@@ -87,11 +90,27 @@ impl Subnet {
                     bitmask = bitmask << 1;
                 }
                 let ip = addr_v6.to_bits() & bitmask;
-                return Subnet {
+                Subnet {
                     ip: IpAddr::V6(Ipv6Addr::from_bits(ip)),
                     mask,
-                };
+                }
             }
         }
+    }
+}
+
+impl Display for Subnet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.ip, self.mask)
+    }
+}
+
+impl Display for NetworkInterface {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Name: {}, Subnets:", self.name)?;
+        for subnet in &self.subnets {
+            write!(f, " {}", subnet)?;
+        }
+        Ok(())
     }
 }
