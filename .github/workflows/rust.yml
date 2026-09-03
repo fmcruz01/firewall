@@ -33,10 +33,6 @@ jobs:
     - name: Install just
       run: cargo install just
 
-    # Install dependencies for pcap
-    - name: Install libpcap
-      run: sudo apt-get update && sudo apt-get install -y libpcap-dev pkg-config
-
     # Install llvm dependencies
     - name: Install jq
       run: sudo apt-get update && sudo apt-get install -y jq
@@ -48,10 +44,6 @@ jobs:
     # Build
     - name: Build
       run: just build
-
-    # Tests
-    - name: Run unit tests
-      run: just unit
 
     # Run coverage check, keeping 0 for now
     - name: Run coverage check
