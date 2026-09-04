@@ -7,8 +7,10 @@ use std::time::Duration;
 pub fn scan_network(interface: String) -> Result<()> {
     let pb = progress_bar();
     if &interface == "default" {
-        let iface = get_route_table().with_context(|| format!("failed to get routing table"))?;
-        pb.println(format!("{iface:?}"));
+        let ifaces = get_route_table().with_context(|| format!("failed to get routing table"))?;
+        for iface in ifaces {
+            pb.println(format!("{}", iface.1));
+        }
     }
     end_progress_bar(pb);
     Ok(())

@@ -1,8 +1,7 @@
 use libc::{
     AF_INET, AF_INET6, AF_NETLINK, AF_UNSPEC, IFA_LOCAL, IFNAMSIZ, NETLINK_ROUTE, NLM_F_DUMP,
-    NLM_F_REQUEST, NLMSG_DONE, NLMSG_ERROR, RT_TABLE_MAIN, RTA_OIF, RTA_PREFSRC, RTM_GETADDR,
-    RTM_GETROUTE, SOCK_RAW, bind, close, getpid, if_indextoname, ifaddrmsg, ifinfomsg, nlmsghdr,
-    recv, rtattr, send, sockaddr, sockaddr_nl, socket, socklen_t,
+    NLM_F_REQUEST, NLMSG_DONE, RTM_GETADDR, SOCK_RAW, bind, close, getpid, if_indextoname,
+    ifaddrmsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket, socklen_t,
 };
 use std::{
     collections::HashMap,
@@ -15,7 +14,7 @@ use std::{
 use crate::models::{DiscoverError, NetworkInterface, Subnet};
 use anyhow::{Context, Result};
 
-pub fn get_route_table() -> Result<HashMap<String, NetworkInterface>> {
+pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
     let sockfd_nl: RawFd = open_nl_socket().context("failed to open route table socket")?;
     bind_nl_socket(sockfd_nl).context("failed to bind route table socket")?;
     let (rtmsg, nlh) = build_rtm_getaddr();
@@ -33,7 +32,6 @@ fn parse_rtaattr_data(
     data_offset: &mut usize,
     msg_end: usize,
 ) -> Option<NetworkInterface> {
-    let mut addr: IpAddr;
     let mut found: bool = false;
     let mut ntw_if = NetworkInterface::new();
     while *data_offset + mem::size_of::<rtattr>() <= msg_end {
@@ -49,7 +47,7 @@ fn parse_rtaattr_data(
         match rta.rta_type {
             IFA_LOCAL => match addr_msg.ifa_family as i32 {
                 AF_INET => {
-                    addr = IpAddr::V4(Ipv4Addr::new(
+                    let addr = IpAddr::V4(Ipv4Addr::new(
                         attr_data[0],
                         attr_data[1],
                         attr_data[2],
@@ -62,7 +60,7 @@ fn parse_rtaattr_data(
                 }
                 AF_INET6 => {
                     let bytes: [u8; 16] = attr_data[..16].try_into().unwrap();
-                    addr = IpAddr::V6(Ipv6Addr::from(bytes));
+                    let addr = IpAddr::V6(Ipv6Addr::from(bytes));
                     if !addr.is_loopback() {
                         ntw_if.add_subnet(Subnet::new(addr, addr_msg.ifa_prefixlen));
                         found = true;
@@ -127,7 +125,7 @@ fn recv_rtmsg(fd: RawFd) -> Result<HashMap<String, NetworkInterface>, DiscoverEr
             }
             let addr_msg = unsafe { &*(buf[attrs_offset..].as_ptr() as *const ifaddrmsg) };
             if let Some(iface) = parse_rtaattr_data(addr_msg, &buf, &mut data_offset, msg_end) {
-                println!("{iface:?}");
+                interfaces.insert(iface.get_name().to_string(), iface);
             }
             offset += (msg_len + 3) & !3;
         }

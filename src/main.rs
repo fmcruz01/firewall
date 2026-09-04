@@ -2,7 +2,7 @@ mod cli;
 mod discover;
 mod fingerprint;
 mod models;
-mod route_table;
+mod network_addr;
 
 use anyhow::{Error, Result};
 
