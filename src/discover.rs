@@ -1,5 +1,5 @@
 use crate::models::Device;
-use crate::route_table::get_route_table;
+use crate::network_addr::get_netw_addr;
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
@@ -7,7 +7,7 @@ use std::time::Duration;
 pub fn scan_network(interface: String) -> Result<()> {
     let pb = progress_bar();
     if &interface == "default" {
-        let ifaces = get_route_table().with_context(|| format!("failed to get routing table"))?;
+        let ifaces = get_netw_addr().with_context(|| format!("failed to get routing table"))?;
         for iface in ifaces {
             pb.println(format!("{}", iface.1));
         }
