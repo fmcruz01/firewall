@@ -1,5 +1,5 @@
 use crate::models::Device;
-use crate::network_addr::get_netw_addr;
+use crate::network::get_netw_addr;
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;

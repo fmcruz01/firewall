@@ -1,22 +1,28 @@
 use libc::{
-    AF_INET, AF_INET6, AF_NETLINK, AF_UNSPEC, IFA_LOCAL, IFNAMSIZ, NETLINK_ROUTE, NLM_F_DUMP,
-    NLM_F_REQUEST, NLMSG_DONE, RTM_GETADDR, SOCK_RAW, bind, close, getpid, if_indextoname,
-    ifaddrmsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket, socklen_t,
+    AF_INET, AF_INET6, AF_NETLINK, AF_UNSPEC, IFA_LOCAL, IFNAMSIZ, IPPROTO_ICMP, NETLINK_ROUTE,
+    NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, RTM_GETADDR, SOCK_RAW, bind, close, getpid,
+    if_indextoname, ifaddrmsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket,
+    socklen_t,
 };
 use std::{
     collections::HashMap,
     ffi::{CStr, c_char},
     mem,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    os::{fd::RawFd, raw::c_void},
+    os::{
+        fd::RawFd,
+        raw::{c_int, c_void},
+    },
 };
 
 use crate::models::{DiscoverError, NetworkInterface, Subnet};
 use anyhow::{Context, Result};
 
 pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
-    let sockfd_nl: RawFd = open_nl_socket().context("failed to open route table socket")?;
-    bind_nl_socket(sockfd_nl).context("failed to bind route table socket")?;
+    let sockfd_nl: RawFd =
+        open_socket(AF_NETLINK, NETLINK_ROUTE).context("failed to open route table socket")?;
+    let saddr = create_nl_sockaddr();
+    bind_socket(sockfd_nl, &saddr as *const sockaddr_nl as *const sockaddr).context("failed to bind route table socket")?;
     let (rtmsg, nlh) = build_rtm_getaddr();
     send_rtmsg(sockfd_nl, rtmsg, nlh).context("failed to send message rtmessage")?;
     let iface = recv_rtmsg(sockfd_nl).context("failed to receive response from netlink")?;
@@ -174,8 +180,8 @@ fn build_rtm_getaddr() -> (ifaddrmsg, nlmsghdr) {
     (addr_msg, nlh)
 }
 
-fn open_nl_socket() -> Result<RawFd, DiscoverError> {
-    let sockfd_nl: RawFd = unsafe { socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE) };
+fn open_socket(domain: c_int, protocol: c_int) -> Result<RawFd, DiscoverError> {
+    let sockfd_nl: RawFd = unsafe { socket(domain, SOCK_RAW, protocol) };
     if sockfd_nl < 0 {
         unsafe {
             close(sockfd_nl);
@@ -188,24 +194,22 @@ fn open_nl_socket() -> Result<RawFd, DiscoverError> {
     Ok(sockfd_nl)
 }
 
-fn bind_nl_socket(sockfd_nl: RawFd) -> Result<(), DiscoverError> {
+fn bind_socket(sockfd: RawFd, saddr: *const sockaddr) -> Result<(), DiscoverError> {
     unsafe {
-        let mut saddr: sockaddr_nl = mem::zeroed();
-        saddr.nl_pid = getpid() as u32;
-        saddr.nl_family = AF_NETLINK as u16;
-        saddr.nl_groups = 0;
-
-        if bind(
-            sockfd_nl,
-            &saddr as *const _ as *const sockaddr,
-            mem::size_of::<sockaddr_nl>() as socklen_t,
-        ) < 0
-        {
-            close(sockfd_nl);
+        if bind(sockfd, saddr, mem::size_of::<sockaddr_nl>() as socklen_t) < 0 {
+            close(sockfd);
             return Err(DiscoverError::SocketError {
                 source: std::io::Error::last_os_error(),
             });
         }
         Ok(())
     }
+}
+
+fn create_nl_sockaddr() -> sockaddr_nl {
+    let mut saddr: sockaddr_nl = unsafe { mem::zeroed() };
+    saddr.nl_pid = unsafe { getpid() as u32 };
+    saddr.nl_family = AF_NETLINK as u16;
+    saddr.nl_groups = 0;
+    saddr
 }
