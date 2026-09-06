@@ -36,5 +36,5 @@ fn end_progress_bar(pb: ProgressBar) {
 }
 
 fn output_found_device(spinner: &ProgressBar, device: &Device) {
-    spinner.println(format!("{:<15} {}", device.ip, device.name));
+    spinner.println(format!("{:<15} {}", device.ip, device.device_type));
 }
