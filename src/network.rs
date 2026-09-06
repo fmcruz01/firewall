@@ -15,7 +15,7 @@ use std::{
     },
 };
 
-use crate::models::{DiscoverError, NetworkInterface, Subnet};
+use crate::models::{DiscoverError, NetworkInterface, Subnet, icmphdr};
 use anyhow::{Context, Result};
 
 pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
@@ -30,6 +30,15 @@ pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
         close(sockfd_nl);
     }
     Ok(iface)
+}
+
+pub fn ping_local_ip(ip: IpAddr) -> Result<()> {
+    let sockfd: RawFd = open_socket(AF_INET, IPPROTO_ICMP).context("failed to open icmp socket")?;
+    let imsg = create_icmp_ping_message();
+    unsafe {
+        close(sockfd);
+    }
+    Ok(())
 }
 
 fn parse_rtaattr_data(
@@ -212,4 +221,9 @@ fn create_nl_sockaddr() -> sockaddr_nl {
     saddr.nl_family = AF_NETLINK as u16;
     saddr.nl_groups = 0;
     saddr
+}
+
+fn create_icmp_ping_message() -> icmphdr {
+    let checksum: u16 = 0;
+    icmphdr { icmp_type: 8u8, code: 0u8, checksum, id: 0, seq: 1 }
 }

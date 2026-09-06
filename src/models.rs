@@ -9,7 +9,16 @@ use uuid::Uuid;
 pub struct Device {
     pub id: Uuid,
     pub ip: String,
-    pub name: String,
+    pub device_type: String,
+}
+
+#[repr(C)]
+pub struct icmphdr {
+    pub icmp_type: u8,
+    pub code: u8,
+    pub checksum: u16,
+    pub id: u16,
+    pub seq: u16,
 }
 
 #[derive(Debug, PartialEq)]
