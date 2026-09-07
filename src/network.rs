@@ -1,8 +1,8 @@
 use libc::{
     AF_INET, AF_INET6, AF_NETLINK, AF_UNSPEC, IFA_LOCAL, IFNAMSIZ, IPPROTO_ICMP, NETLINK_ROUTE,
     NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, RTM_GETADDR, SOCK_RAW, bind, close, getpid,
-    if_indextoname, ifaddrmsg, nlmsghdr, recv, rtattr, send, sockaddr, sockaddr_nl, socket,
-    socklen_t,
+    if_indextoname, ifaddrmsg, in_addr, nlmsghdr, recv, rtattr, send, sendto, sockaddr,
+    sockaddr_in, sockaddr_nl, socket, socklen_t,
 };
 use std::{
     collections::HashMap,
@@ -22,9 +22,10 @@ pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
     let sockfd_nl: RawFd =
         open_socket(AF_NETLINK, NETLINK_ROUTE).context("failed to open route table socket")?;
     let saddr = create_nl_sockaddr();
-    bind_socket(sockfd_nl, &saddr as *const sockaddr_nl as *const sockaddr).context("failed to bind route table socket")?;
+    bind_socket(sockfd_nl, &saddr as *const sockaddr_nl as *const sockaddr)
+        .context("failed to bind route table socket")?;
     let (rtmsg, nlh) = build_rtm_getaddr();
-    send_rtmsg(sockfd_nl, rtmsg, nlh).context("failed to send message rtmessage")?;
+    send_rtmsg(sockfd_nl, rtmsg, nlh).context("failed to send rtmgetaddr message")?;
     let iface = recv_rtmsg(sockfd_nl).context("failed to receive response from netlink")?;
     unsafe {
         close(sockfd_nl);
@@ -32,9 +33,10 @@ pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
     Ok(iface)
 }
 
-pub fn ping_local_ip(ip: IpAddr) -> Result<()> {
+pub fn ping_local_ip(ip: Ipv4Addr) -> Result<()> {
     let sockfd: RawFd = open_socket(AF_INET, IPPROTO_ICMP).context("failed to open icmp socket")?;
     let imsg = create_icmp_ping_message();
+    send_ping(sockfd, imsg, ip).context("failed to send icmp message")?;
     unsafe {
         close(sockfd);
     }
@@ -169,7 +171,8 @@ fn send_rtmsg(fd: RawFd, addr_msg: ifaddrmsg, nlh: nlmsghdr) -> Result<(), Disco
         let sent = send(fd, buf.as_ptr() as *const c_void, buf.len(), 0);
         if sent < 0 {
             close(fd);
-            return Err(DiscoverError::SocketError {
+            return Err(DiscoverError::SendMessageError {
+                sock_type: String::from("RTM"),
                 source: std::io::Error::last_os_error(),
             });
         }
@@ -223,7 +226,60 @@ fn create_nl_sockaddr() -> sockaddr_nl {
     saddr
 }
 
+fn send_ping(sockfd: RawFd, msg: icmphdr, ip: Ipv4Addr) -> Result<(), DiscoverError> {
+    let mut dst: sockaddr_in = unsafe { mem::zeroed() };
+    dst.sin_family = AF_INET as u16;
+    dst.sin_addr = in_addr {
+        s_addr: ip.to_bits().to_be(),
+    };
+
+    let mut buf = [0u8; size_of::<icmphdr>()];
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            &msg as *const _ as *const u8,
+            buf.as_mut_ptr(),
+            size_of::<icmphdr>(),
+        );
+    }
+
+    unsafe {
+        if sendto(
+            sockfd,
+            buf.as_ptr() as *const c_void,
+            mem::size_of_val(&buf),
+            0,
+            &dst as *const sockaddr_in as *const sockaddr,
+            mem::size_of_val(&dst) as u32,
+        ) < 0
+        {
+            close(sockfd);
+            return Err(DiscoverError::SendMessageError {
+                sock_type: String::from("ICMP"),
+                source: std::io::Error::last_os_error(),
+            });
+        }
+    }
+    Ok(())
+}
+
 fn create_icmp_ping_message() -> icmphdr {
-    let checksum: u16 = 0;
-    icmphdr { icmp_type: 8u8, code: 0u8, checksum, id: 0, seq: 1 }
+    let mut checksum: u32 = 0;
+    let mut hdr = icmphdr {
+        icmp_type: 8u8,
+        code: 0u8,
+        checksum: 0,
+        id: 0,
+        seq: 1,
+    };
+
+    let words = unsafe { std::slice::from_raw_parts(&hdr as *const icmphdr as *const u16, 8) };
+
+    for &word in words {
+        checksum += word as u32;
+    }
+    checksum = (checksum >> 16) + (checksum & 0xffff);
+    checksum = (checksum >> 16) + (checksum & 0xffff);
+
+    hdr.checksum = !(checksum as u16);
+    hdr
 }
