@@ -1,6 +1,7 @@
 use std::{
     fmt::Display,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    ops::{Deref, DerefMut},
 };
 
 use thiserror::Error;
@@ -23,8 +24,8 @@ pub struct icmphdr {
 
 #[derive(Debug, PartialEq)]
 pub struct Subnet {
-    ip: IpAddr,
-    mask: u8,
+    pub ip: IpAddr,
+    pub mask: u8,
 }
 
 #[derive(Debug, PartialEq)]
@@ -35,13 +36,43 @@ pub struct NetworkInterface {
 
 #[derive(Debug, Error)]
 pub enum DiscoverError {
-    #[error("failed to connect to network interface")]
+    #[error("failed to connect to socket")]
     SocketError {
         #[source]
         source: std::io::Error,
     },
     #[error("failed to find {iface} network interface")]
     NetworkInterfaceNotFound { iface: String },
+    #[error("failed to send message over socket of type: {sock_type}")]
+    SendMessageError {
+        sock_type: String,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+impl Deref for icmphdr {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe {
+            std::slice::from_raw_parts(
+                self as *const icmphdr as *const u8,
+                std::mem::size_of::<icmphdr>(),
+            )
+        }
+    }
+}
+
+impl DerefMut for icmphdr {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                self as *mut icmphdr as *mut u8,
+                std::mem::size_of::<icmphdr>(),
+            )
+        }
+    }
 }
 
 impl NetworkInterface {
@@ -105,6 +136,19 @@ impl Subnet {
                 }
             }
         }
+    }
+
+    pub fn get_subnet_ips(&self) -> Vec<Ipv4Addr> {
+        let mut res = Vec::new();
+        if let IpAddr::V4(ip) = self.ip {
+            let base = ip.to_bits() + 1;
+            let possibles_addrs = 2u32.pow((32 - self.mask) as u32);
+            for i in 0..possibles_addrs {
+                let addr = (base + i).to_ne_bytes();
+                res.push(Ipv4Addr::new(addr[0], addr[1], addr[2], addr[3]));
+            }
+        }
+        res
     }
 }
 
