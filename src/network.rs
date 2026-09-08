@@ -1,9 +1,5 @@
 use libc::{
-    AF_INET, AF_INET6, AF_NETLINK, AF_UNSPEC, IFA_LOCAL, IFNAMSIZ, IPPROTO_ICMP, NETLINK_ROUTE,
-    NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, RTM_GETADDR, SO_RCVTIMEO, SOCK_RAW, SOL_SOCKET, bind,
-    getpid, if_indextoname, ifaddrmsg, in_addr, nlmsghdr, recv, recvfrom, rtattr, send, sendto,
-    setsockopt, sockaddr, sockaddr_in, sockaddr_nl, sockaddr_storage, socket, socklen_t,
-    suseconds_t, time_t, timeval,
+    AF_INET, AF_INET6, AF_NETLINK, AF_UNSPEC, IFA_LOCAL, IFNAMSIZ, IPPROTO_ICMP, NETLINK_ROUTE, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_DONE, RTM_GETADDR, SO_RCVTIMEO, SOCK_DGRAM, SOCK_RAW, SOL_SOCKET, bind, getpid, if_indextoname, ifaddrmsg, in_addr, nlmsghdr, recv, recvfrom, rtattr, send, sendto, setsockopt, sockaddr, sockaddr_in, sockaddr_nl, sockaddr_storage, socket, socklen_t, suseconds_t, time_t, timeval
 };
 use std::{
     collections::HashMap,
@@ -22,7 +18,7 @@ use anyhow::{Context, Result};
 
 pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
     let sockfd_nl: OwnedFd =
-        open_socket(AF_NETLINK, NETLINK_ROUTE).context("failed to open route table socket")?;
+        open_socket(AF_NETLINK, SOCK_RAW,NETLINK_ROUTE).context("failed to open route table socket")?;
     let saddr = create_nl_sockaddr();
     bind_socket(
         sockfd_nl.as_raw_fd(),
@@ -38,7 +34,7 @@ pub fn get_netw_addr() -> Result<HashMap<String, NetworkInterface>> {
 
 pub fn ping_local_ip(ip: Ipv4Addr) -> Result<Option<Ipv4Addr>, anyhow::Error> {
     let sockfd: OwnedFd =
-        open_socket(AF_INET, IPPROTO_ICMP).context("failed to open icmp socket")?;
+        open_socket(AF_INET,SOCK_DGRAM, IPPROTO_ICMP).context("failed to open icmp socket")?;
     let imsg = create_icmp_ping_message();
     send_ping(sockfd.as_raw_fd(), imsg, ip).context("failed to send icmp message")?;
     recv_ping(sockfd.as_raw_fd()).context("failed to retrieve ping reply")
@@ -189,8 +185,8 @@ fn build_rtm_getaddr() -> (ifaddrmsg, nlmsghdr) {
     (addr_msg, nlh)
 }
 
-fn open_socket(domain: c_int, protocol: c_int) -> Result<OwnedFd, DiscoverError> {
-    let sockfd_nl: RawFd = unsafe { socket(domain, SOCK_RAW, protocol) };
+fn open_socket(domain: c_int, sock_type: c_int, protocol: c_int) -> Result<OwnedFd, DiscoverError> {
+    let sockfd_nl: RawFd = unsafe { socket(domain, sock_type, protocol) };
     if sockfd_nl < 0 {
         return Err(DiscoverError::SocketError {
             source: std::io::Error::last_os_error(),
@@ -244,13 +240,7 @@ fn recv_ping(sockfd: RawFd) -> Result<Option<Ipv4Addr>, DiscoverError> {
             });
         }
     }
-    if buf_len < 20 {
-        return Err(DiscoverError::RecvInvalidMessage {
-            details: String::from("invalid ip header length for received icmp reply."),
-        });
-    }
-    let ip_hdr_len = ((buf[0] & 15u8) * 4) as usize;
-    if buf[ip_hdr_len] == 0 {
+    if buf[0] == 0 {
         let recv_addr: &sockaddr =
             unsafe { &*(&addr as *const sockaddr_storage as *const sockaddr) };
         match recv_addr.sa_family as i32 {
