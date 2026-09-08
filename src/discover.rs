@@ -6,12 +6,20 @@ use std::time::Duration;
 
 pub fn scan_network(interface: String) -> Result<()> {
     let pb = progress_bar();
+    pb.println(format!("{:<20} Device Type", "IP address"));
     if &interface == "default" {
-        let ifaces = get_netw_addr().with_context(|| format!("failed to get routing table"))?;
+        let ifaces = get_netw_addr().context("failed to get routing table")?;
         for iface in ifaces {
             let subnet: &Subnet = &iface.1.get_subnets()[0];
             for ip in subnet.get_subnet_ips() {
-                let _ = ping_local_ip(ip).context("failed to ping ip {ip}");
+                let res = ping_local_ip(ip).with_context(|| format!("failed to ping ip {}", ip))?;
+                if let Some(recv_ip) = res {
+                    let device = Device {
+                        ip: recv_ip.to_string(),
+                        device_type: String::from("unknown"),
+                    };
+                    output_found_device(&pb, &device);
+                }
             }
         }
     }
@@ -39,5 +47,5 @@ fn end_progress_bar(pb: ProgressBar) {
 }
 
 fn output_found_device(spinner: &ProgressBar, device: &Device) {
-    spinner.println(format!("{:<15} {}", device.ip, device.device_type));
+    spinner.println(format!("{:<20} {}", device.ip, device.device_type));
 }

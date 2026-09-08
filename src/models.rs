@@ -5,10 +5,8 @@ use std::{
 };
 
 use thiserror::Error;
-use uuid::Uuid;
 
 pub struct Device {
-    pub id: Uuid,
     pub ip: String,
     pub device_type: String,
 }
@@ -48,6 +46,10 @@ pub enum DiscoverError {
         sock_type: String,
         #[source]
         source: std::io::Error,
+    },
+    #[error("received invalid message. details: {details}")]
+    RecvInvalidMessage{
+        details: String,
     },
 }
 
@@ -141,10 +143,9 @@ impl Subnet {
     pub fn get_subnet_ips(&self) -> Vec<Ipv4Addr> {
         let mut res = Vec::new();
         if let IpAddr::V4(ip) = self.ip {
-            let base = ip.to_bits() + 1;
             let possibles_addrs = 2u32.pow((32 - self.mask) as u32);
-            for i in 0..possibles_addrs {
-                let addr = (base + i).to_ne_bytes();
+            for i in 1..possibles_addrs-1 {
+                let addr = (ip.to_bits() + i).to_be_bytes();
                 res.push(Ipv4Addr::new(addr[0], addr[1], addr[2], addr[3]));
             }
         }
